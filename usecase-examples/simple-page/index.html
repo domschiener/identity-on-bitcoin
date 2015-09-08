@@ -1,0 +1,128 @@
+
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+    <head>
+
+        <!-- CSS FILES -->
+        <link rel="stylesheet" href="css/bootstrap.min.css">
+        <link rel="stylesheet" href="css/style.css">
+
+        <!-- JS & BOOTSTRAP -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/openpgp.js" language="JavaScript"></script>
+
+        <title>My Plant's Data</title>
+        <script>
+            $(document).ready(function() {
+
+                $("<div id='overlay'></div>").css({
+                    "position": "fixed",
+                    "top": "0px",
+                    "left": "0px",
+                    "width": "100%",
+                    "height": "100%",
+                    "background-color": "rgba(0,0,0,.95)",
+                    "z-index": "10000"
+                }).appendTo("#insert");
+                $("<div id='content' class='container'><p style='font-size:22px'>This website contains sensitive information. Please verify that you are over 18 years old:</p><br><button id='test' type='button' class='btn btn-primary' onclick='newLayer()'>Submit</button></div>").css({
+                    "position": "fixed",
+                    "top": "center",
+                    "left": "center",
+                    "z-index": "10001",
+                    "color": "#fff",
+                    "text-align": "center"
+                }).appendTo("#insert");
+            });
+
+            function newLayer() {
+                var options = {
+                    numBits: 2048,
+                    userId: 'Super Secret Website <supersecret@website.com',
+                    passphrase: 'this is the most secret password a super secret website can have'
+                };
+
+                var privkey;
+                var pubkey;
+                openpgp.generateKeyPair(options).then(function(keypair) {
+                    // success
+                    privkey = keypair.privateKeyArmored;
+                    pubkey = keypair.publicKeyArmored;
+                    console.log(privkey);
+                    document.getElementById('pubkey').innerHTML = pubkey;
+                });
+                $("#content").remove();
+                $("<div id='content2' class='container'><p style='color:white; font-size:22px '>Authorize access to this Service Provider by using the following Public Key. Once you have done that, generate an access token of your birthdate and replace the text below:</p><br><textarea rows='8' cols='80' id='pubkey' style='font-color:#000; font-size: 14px'></textarea><br><button id='submit' type='button' class='btn btn-primary'>Complete</button></div>").css({
+                    "position": "fixed",
+                    "top": "center",
+                    "left": "center",
+                    "z-index": "10002",
+                    "text-align": "center"
+                }).appendTo("#insert");
+
+                $('#submit').click(function(){
+                    message = document.getElementById('pubkey').value
+                    decryptmessage(privkey, message);
+                });
+            }
+
+            function decryptmessage(privKey, message_info) {
+                privKey = openpgp.key.readArmored(privKey).keys[0]
+                encrypted_message = openpgp.message.readArmored(message_info);
+                privKey.decrypt('this is the most secret password a super secret website can have');
+                openpgp.decryptMessage(privKey, encrypted_message).then(function(decrypted_string) {
+                    prepared_string = decrypted_string.replace(/'/g , '"');
+                    plaintext = JSON.parse(prepared_string);
+                    date = plaintext['date-of-birth'].split('.');
+                    day = date[0];
+                    month = date[1] - 1;
+                    year = date[2];
+
+                    var oneDay = 24*60*60*1000;
+                    var current_date = new Date();
+                    var new_date = new Date(year, month, day);
+                    var diffDays = Math.round(Math.abs((current_date.getTime() - new_date.getTime())/(oneDay)));
+
+                    if (diffDays > 18 * 365) {
+                        console.log("You are over 18");
+                        removeOverlay()
+                    } else {
+                        $("#content2").remove();
+                        $("<div id='content3' class='container'><p style='color:white; font-size:22px '>Sorry but you are not old enough. You are being redirected now.</p></div>").css({
+                            "position": "fixed",
+                            "top": "center",
+                            "left": "center",
+                            "z-index": "10003",
+                            "text-align": "center"
+                        }).appendTo("body");
+                        setTimeout(function() {
+                            //window.location = "http://www.google.com";
+                        }, 2000);
+                    }
+                });
+            }
+
+            function removeOverlay() {
+                $("#content2").remove();
+                $("#overlay").remove();
+            }
+        </script>
+    </head>
+    <body>
+        <nav class="navbar navbar-default" role="navigation">
+            <div class="col-md-4"><a class="navbar-brand" href="#">Smart Plant Panel</a></div>
+            <div class="col-md-4"></div>
+            <div class="col-md-4"><button id="signup" type="button" class="btn btn-primary" onclick="">SIGN UP</button></div>
+        </nav>
+
+        <div class="container">
+            <div class="row">
+                <h1><center id="insert">Certain, top secret stuff goes here</center></h1>
+                <center><img src="./looking.gif"></center>
+            </div>
+        </div>
+
+
+    </body>
+</html>
