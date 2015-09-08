@@ -13,7 +13,8 @@ from Crypto import Random
 from pprint import pprint
 
 
-gpg = gnupg.GPG(homedir='/Users/domsch/.gnupg', keyring='pubring.gpg', secring='secring.gpg')
+#IF YOU HAVE A DIFFERENT LOCAL PGP DIRECTORY, CHANGE IT HERE
+gpg = gnupg.GPG(homedir='~/.gnupg', keyring='pubring.gpg', secring='secring.gpg')
 
   
 ### 
@@ -74,7 +75,7 @@ def generate_privkey(source):
 
 
 def store_entity(personal_entity):
-    entity_stored = open("/Users/domsch/Desktop/fingerprint-project/entities.txt", 'a')
+    entity_stored = open("./entities.txt", 'a')
     pickle.dump(personal_entity, entity_stored)
     entity_stored.close()
     return personal_entity 
@@ -87,7 +88,7 @@ def store_entity(personal_entity):
 
 def get_entities():
     list_entities = []
-    with open("/Users/domsch/Desktop/fingerprint-project/entities.txt", "rb") as entity_stored:
+    with open("./entities.txt", "rb") as entity_stored:
         try:
             while True:
                 get_entity = pickle.load(entity_stored)
@@ -185,9 +186,6 @@ def SP_authorize(entity, name, gpg_key):
 
 
 def accesstoken(gpg_fingerprint, identity):
-    print
-    print "Fingerprint: "
-    print gpg_fingerprint
     return gpg.encrypt(identity,gpg_fingerprint)
     
 

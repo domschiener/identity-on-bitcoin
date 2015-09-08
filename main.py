@@ -608,6 +608,9 @@ class EnrollEntity_AuthMethod(tk.Frame):
                 wrong_path =  tk.Label(self, text="Wrong file path. Please provide the correct and full path to your desired image", wraplength=400)
                 wrong_path.pack()
         else:
+            ##
+            ## FILES FOR FINGERPRINT SCANNER WILL BE RELEASED SOON
+            ##
             if os.path.isfile("./fingerprint.bmp"):
                 priv_key = generate_privkey(open("./fingerprint.bmp",'rb+').read())
                 self.generate()
@@ -782,6 +785,9 @@ class AuthenticateEntity(tk.Frame):
                 wrong_path =  tk.Label(self, text="Wrong file path. Please provide the correct and full path to your desired image", wraplength=400)
                 wrong_path.pack()
         else:
+            ##
+            ## FILES FOR FINGERPRINT SCANNER WILL BE RELEASED SOON
+            ##
             chosen_secret = "./fingerprint.bmp"
 
             if os.path.isfile(chosen_secret):
