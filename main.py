@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import Tkinter as tk
+import multiprocessing
 from helpers import *
+import atexit
+import api
 
 TITLE_FONT = ("Helvetica", 18, "bold")
 CURR_ENTITY = None
 priv_key = None
+processes = []
+sp_handshake = None
 
 
 class SampleApp(tk.Tk):
@@ -68,6 +73,9 @@ class Authenticated(tk.Frame):
         serviceproviders = tk.Button(self, text="Manage Service Providers", command=self.sp_management)
         serviceproviders.pack(pady=30)
 
+        api_btn = tk.Button(self, text="TURN API ON/OFF", command=self.init_api)
+        api_btn.pack(pady=30)
+
     def newidentity(self):
         frame = create_identity(self.container, self)
         frame.grid(row=0, column=0, sticky="nsew")
@@ -83,6 +91,13 @@ class Authenticated(tk.Frame):
         frame.grid(row=0, column=0, sticky="nsew")
         frame.tkraise()
 
+    def init_api(self):
+        if processes:
+            cleanup()
+        else:
+            for func in [api.app.run]:
+                processes.append(multiprocessing.Process(target=func))
+                processes[-1].start()
 
 class show_identities(tk.Frame):
 
@@ -94,7 +109,8 @@ class show_identities(tk.Frame):
         label = tk.Label(self, text="List of Identities", font=TITLE_FONT)
         label.pack(side="top", fill="x", pady=10)
 
-        pprint(CURR_ENTITY.identities)
+        for identity in CURR_ENTITY.identities:
+            pprint(identity)
 
         box = tk.Text(self, width=80, height=15, relief='flat')
         scroll = tk.Scrollbar(self)
@@ -354,7 +370,6 @@ class authorization_service(tk.Frame):
 
 
 class show_SPs(tk.Frame):
-    #TO-DO: revoke access to SP
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.container = parent
@@ -364,19 +379,28 @@ class show_SPs(tk.Frame):
         label.pack(side="top", fill="x", pady=10)
 
         if CURR_ENTITY.serviceproviders:
-            for provider in CURR_ENTITY.serviceproviders:
-                for name in provider:
-                    label = tk.Label(self, text=name)
-                    label.pack()
 
             goback = tk.Button(self, text="Go back", command=self.main_page)
-            goback.pack(pady=30)                
+            goback.pack(pady=30)
+
+            btn = tk.Button(self, text="Remove all SP", command=self.revoke)
+            btn.pack(pady=30)
+
+            for provider in CURR_ENTITY.serviceproviders:
+                for name in provider:
+                    lbl = tk.Label(self, text=name)
+                    lbl.pack()            
         else:
             no_sp = tk.Label(self, text="No Service Providers")
             no_sp.pack()
 
             goback = tk.Button(self, text="Go back", command=self.main_page)
-            goback.pack(pady=30)
+            goback.pack(pady=30)    
+
+    def revoke(self):
+        global CURR_ENTITY
+        del CURR_ENTITY.serviceproviders[:]
+        CURR_ENTITY = store_entity(CURR_ENTITY)
 
     def main_page(self):
         frame = Authenticated(self.container, self)
@@ -443,7 +467,7 @@ class genaccesstoken(tk.Frame):
         for provider in CURR_ENTITY.serviceproviders:
             for name in provider:
                 if chosen_provider == name:
-                    self.provider_fingerprint = provider[name]
+                    self.provider_fingerprint = provider[name]['fingerprint']
                     break
 
         for identity in CURR_ENTITY.identities:
@@ -608,9 +632,6 @@ class EnrollEntity_AuthMethod(tk.Frame):
                 wrong_path =  tk.Label(self, text="Wrong file path. Please provide the correct and full path to your desired image", wraplength=400)
                 wrong_path.pack()
         else:
-            ##
-            ## FILES FOR FINGERPRINT SCANNER WILL BE RELEASED SOON
-            ##
             if os.path.isfile("./fingerprint.bmp"):
                 priv_key = generate_privkey(open("./fingerprint.bmp",'rb+').read())
                 self.generate()
@@ -718,7 +739,7 @@ class EnrollEntity_Gen2(tk.Frame):
             if unspent(CURR_ENTITY.pub_address)[0]['value'] >= 10000:
                 print "\nPlacing your entity in the Blockchain. This might take a while."
                 CURR_ENTITY.eternify(unspent(CURR_ENTITY.pub_address), priv_key)
-
+                api.init_API(CURR_ENTITY)
                 title = tk.Label(self, text="Successfully placed your entity in the Blockchain. You can go back now")
                 title.pack(pady=10)
             else:
@@ -767,7 +788,8 @@ class AuthenticateEntity(tk.Frame):
             authenticated_entity = authenticate(chosen_secret)
             CURR_ENTITY = authenticated_entity[0]
             priv_key = authenticated_entity[1]
-
+            api.init_API(CURR_ENTITY)
+            print "Successfully authenticated Entity '%s', with pub_key %s\n" % (CURR_ENTITY.name, CURR_ENTITY.pub_key)
             frame = Authenticated(self.container, self)
             frame.grid(row=0, column=0, sticky="nsew")
             frame.tkraise()
@@ -777,6 +799,7 @@ class AuthenticateEntity(tk.Frame):
                 authenticated_entity = authenticate(open(chosen_secret,'rb+').read())
                 CURR_ENTITY = authenticated_entity[0]
                 priv_key = authenticated_entity[1]
+                api.init_API(CURR_ENTITY)
                 print "Successfully authenticated Entity '%s', with pub_key %s\n" % (CURR_ENTITY.name, CURR_ENTITY.pub_key)
                 frame = Authenticated(self.container, self)
                 frame.grid(row=0, column=0, sticky="nsew")
@@ -785,15 +808,13 @@ class AuthenticateEntity(tk.Frame):
                 wrong_path =  tk.Label(self, text="Wrong file path. Please provide the correct and full path to your desired image", wraplength=400)
                 wrong_path.pack()
         else:
-            ##
-            ## FILES FOR FINGERPRINT SCANNER WILL BE RELEASED SOON
-            ##
             chosen_secret = "./fingerprint.bmp"
 
             if os.path.isfile(chosen_secret):
                 authenticated_entity = authenticate(open(chosen_secret,'rb+').read())
                 CURR_ENTITY = authenticated_entity[0]
                 priv_key = authenticated_entity[1]
+                api.init_API(CURR_ENTITY, priv_key)
                 print "Successfully authenticated Entity '%s', with pub_key %s\n" % (CURR_ENTITY.name, CURR_ENTITY.pub_key)
                 frame = Authenticated(self.container, self)
                 frame.grid(row=0, column=0, sticky="nsew")
@@ -802,8 +823,23 @@ class AuthenticateEntity(tk.Frame):
                 print "Failure"
 
 
+def update_entity(ENTITY):
+    global CURR_ENTITY
+    CURR_ENTITY = ENTITY
+
+##
+## PROCESS RELATED FUNCTIONS
+##
+
+def cleanup():
+    if processes:
+        for p in processes:
+            p.terminate()
+            processes.remove(p)
+        print "API Turned Off"
 
 if __name__ == "__main__":
-    app = SampleApp()
-    app.maxsize(700, 700)
-    app.mainloop()
+    gui = SampleApp()
+    gui.maxsize(700, 700)
+    gui.mainloop()
+    atexit.register(cleanup)

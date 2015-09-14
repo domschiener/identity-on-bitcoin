@@ -13,7 +13,6 @@ from Crypto import Random
 from pprint import pprint
 
 
-#IF YOU HAVE A DIFFERENT LOCAL PGP DIRECTORY, CHANGE IT HERE
 gpg = gnupg.GPG(homedir='~/.gnupg', keyring='pubring.gpg', secring='secring.gpg')
 
   
@@ -80,7 +79,9 @@ def store_entity(personal_entity):
     entity_stored.close()
     return personal_entity 
  
-
+def signature(message, priv_key):
+    signature = ecdsa_sign(message, priv_key)
+    return self.signature
 ### 
 ### Authenticate existing entity
 ### 
@@ -155,13 +156,12 @@ def encrypt_attributes(identity_obj, priv_key):
     return identity_obj
 
 
-def decrypt_attributes(ciphertext, priv_key):
-    iv = ciphertext[:AES.block_size]
+def decrypt_attributes(attribute, priv_key):
+    iv = attribute[:AES.block_size]
     hashed_key = MD5.new(priv_key).hexdigest()
     cipher = AES.new(hashed_key, AES.MODE_CBC, iv)
 
-    decrypted = cipher.decrypt(ciphertext[AES.block_size:])
-
+    decrypted = cipher.decrypt(attribute[AES.block_size:])
     return decrypted.rstrip("\0")
 
 ### 
@@ -169,21 +169,35 @@ def decrypt_attributes(ciphertext, priv_key):
 ### 
 
 
-def SP_authorize(entity, name, gpg_key):
+def SP_authorize(entity, name, gpg_key, auth_token=None):
+##TODO: IF SERVICE PROVIDER ALREADY AUTHORIZED, DONT ADD NEW ONE
+
     #importing key into pubring
-    import_result = gpg.import_keys(gpg_key)
+    providers = name_of_all_SP(entity)
 
-    gpg_fingerprint = None
-    for result in import_result.results:
-        gpg_fingerprint = result['fingerprint']
+    if name in providers:
+        return 0
+    else:
+        import_result = gpg.import_keys(gpg_key)
+        gpg_fingerprint = None
+        for result in import_result.results:
+            gpg_fingerprint = result['fingerprint']
 
-    print
-    print "Successfully authorized: " + name
-    print
-    entity.serviceproviders.append({name:gpg_fingerprint})
-    new_entity = store_entity(entity)
-    return new_entity
+        print "\nSuccessfully authorized: " + name
+        if auth_token:
+            entity.serviceproviders.append({name: {'fingerprint':gpg_fingerprint, 'auth_token':auth_token}})
+        else:
+            entity.serviceproviders.append({name:{'fingerprint':gpg_fingerprint}})
+        new_entity = store_entity(entity)
+        return new_entity
 
+def name_of_all_SP(entity):
+    providers = []
+    for sp in entity.serviceproviders:
+        for key in sp:
+            providers.append(key)
+
+    return providers
 
 def accesstoken(gpg_fingerprint, identity):
     return gpg.encrypt(identity,gpg_fingerprint)
@@ -219,7 +233,6 @@ def prepare_tx(entity, digest, utxo, priv_key):
     #if multiple UTXO's, sign them all
     if len(right_txo) > 1:
         for i in range(1, len(utxo)):
-            print priv_key
             signed_tx = sign(signed_tx, i, priv_key)
 
     return push_blockchain(signed_tx)
