@@ -1,8 +1,8 @@
-var express = require('express');
-var request = require('request');
-var bodyParser = require('body-parser')
-var fs = require('fs');
-var openpgp = require('openpgp');
+var express = require('express'),
+	request = require('request'),
+	bodyParser = require('body-parser'),
+	fs = require('fs'),
+	openpgp = require('openpgp');
  
 var app = express();
 app.use(express.static(__dirname));
